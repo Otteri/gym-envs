@@ -41,14 +41,14 @@ class FourierSeries(Env):
     # Currently only considers single rotation
     def _recordRotation(self):
         signal_data = np.empty(self.data_length, 'float64')
-        rotation_data = np.empty(self.data_length, 'float64')
+        ##rotation_data = np.empty(self.data_length, 'float64')
         current_sample_num = 0
 
         # Do one approximately full mechanical rotation
         # Might not be precisely full rotation, due to added noise
         rotor_angle = np.random.uniform(0, PI2) # Start from random angle
         while(current_sample_num < self.data_length):
-            rotation_data[current_sample_num] = rotor_angle
+            ##rotation_data[current_sample_num] = rotor_angle
             signal_data[current_sample_num] = self._sample(rotor_angle)
 
             noise = np.random.uniform(-self.noise, self.noise) # simulate encoder noise (%)
@@ -58,15 +58,18 @@ class FourierSeries(Env):
             # Make angle to stay within limits: [0, PI2]
             if (rotor_angle >= PI2):
                 rotor_angle = 0
+            print("Using local version!!!")
 
-        recorded_data = np.vstack((rotation_data, signal_data)) # [angle, signal1]
-        return recorded_data # [angle, signal1]
+        ##recorded_data = np.vstack((rotation_data, signal_data)) # [angle, signal1]
+        recorded_data = (signal_data) # [signal1]
+        return recorded_data # [signal1]
 
-    def recordRotations(self, rotations=1, viz=False):
-        data = np.empty((rotations, 2, self.data_length), 'float64')
+    def recordRotations(self, rotations=1, viz=False) -> np.array:
+        signal_num = 1
+        data = np.empty((rotations, signal_num, self.data_length), 'float64') # rotations, signals, signal_length
         for i in range(0, rotations):
             print("Collecting data: {}/{}".format((i+1), rotations))
-            data[i, :, :] = self._recordRotation()
+            data[i, :] = self._recordRotation()
 
         # Show recorded samples if user wants to see them.
         if viz:
