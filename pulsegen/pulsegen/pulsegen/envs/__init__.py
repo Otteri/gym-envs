@@ -1,1 +1,3 @@
-from pulsegen.envs.fourier_series_env import FourierSeries
+from pulsegen.envs.fourier_series_env import PeriodicalSignal
+from pulsegen.envs.fourier_series_env import PeriodicalSignalWithAngle
+from pulsegen.envs.fourier_series_env import PeriodicalSignalWithTime

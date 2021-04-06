@@ -8,27 +8,20 @@ import pytest
 
 @pytest.fixture()
 def env():
-    yield gym.make("FourierSeries-v0", config_path="config.py")
+    yield gym.make("PeriodicalSignalWithAngle-v0", config_path="config.py")
 
 class TestCustomConfig:
     def test_collects_data(self, env):
-        data = env.recordRotations(rotations=1, viz=False)
-        assert data.all() != None
-        assert data.ndim == 3
-
-    def test_does_multiple_rotations(self, env):
-        data1 = env.recordRotations(rotations=1, viz=False)
-        data2 = env.recordRotations(rotations=2, viz=False)
-        assert len(data2) > len(data1)
+        angle_data, signal_data = env.record_rotation(viz=False)
+        assert angle_data.all() != None
+        assert signal_data.all() != None
 
     def test_data_length_is_correct(self, env):
-        data = env.recordRotations(rotations=1)
-        assert data.shape[2] == 1000
+        angle_data, signal_data = env.record_rotation()
+        assert len(angle_data) == 1000
+        assert len(signal_data) == 1000
 
-    def test_batch_size_is_correct(self, env):
-        with pytest.raises(ValueError):
-            data = env.recordRotations(rotations=-1)
-
-    def test_data_values_change(self, env):
-        data = env.recordRotations(rotations=1)
-        assert data[0, 0, 0] != data[0, 0, 1]
+    def test_data_values_are_different(self, env):
+        angle_data, signal_data = env.record_rotation()
+        assert angle_data[0] != angle_data[1]
+        assert signal_data[0] != signal_data[1]

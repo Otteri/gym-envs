@@ -1,6 +1,16 @@
 from gym.envs.registration import register
 
 register(
-    id='FourierSeries-v0',
-    entry_point='pulsegen.envs:FourierSeries',
+    id='PeriodicalSignal-v0',
+    entry_point='pulsegen.envs:PeriodicalSignal',
+)
+
+register(
+    id='PeriodicalSignalWithAngle-v0',
+    entry_point='pulsegen.envs:PeriodicalSignalWithAngle',
+)
+
+register(
+    id='PeriodicalSignalWithTime-v0',
+    entry_point='pulsegen.envs:PeriodicalSignalWithTime',
 )

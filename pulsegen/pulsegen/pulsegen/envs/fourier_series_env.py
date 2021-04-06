@@ -1,24 +1,17 @@
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from gym import Env
 
-# Briefly:
-# Generates two channel data: [signal, angle]
-# Multiple samples can be recorded at once. The output data will
-# be stacked, so the final output is three dimensional array.
-# The module can also visualize the generated data.
-# Just call recordRotations function with desired arguments.
-
-PI2 = 2*np.pi
-# ==============================================================
-# Data generation logic
-
 class FourierSeries(Env):
-
-    def __init__(self, config_path=None):
+    def __init__(self, config_path=None) -> None:
+        """
+        Signal properties are set here. Uses values from the default
+        config file, if no separate config path is provided.
+        """
         if config_path:
             import sys
-            print("Loading config from:", config_path)
+            print("[INFO] Loading config:", config_path)
             sys.path.append(config_path)
             import config
         else:
@@ -29,92 +22,101 @@ class FourierSeries(Env):
         self.harmonics = config.harmonics
         self.noise = config.noise
 
-    def _sample(self, angle):
-        torque = 0.0
+    def _get_sample(self, angle):
+        """
+        Gives a single point value. Increment angle and call
+        this function reteatedly to record full signal.
+
+        Args:
+            angle (float): Angle in radians [0 2PI]
+
+        Returns:
+            sample value
+        """
+        value = 0.0
         for harmonic_n in self.harmonics:
             magnitue = self.harmonics[harmonic_n]
-            torque += magnitue * np.cos(harmonic_n * angle)
-        return torque
+            value += magnitue * np.cos(harmonic_n * angle)
+        return value
 
-    # Returns list including rotations
-    # If default one rotation, then list has only one item
-    # Currently only considers single rotation
-    def _recordRotation(self):
+    def _record_rotation(self, viz=False) -> (np.array, np.array):
+        """
+        This is the core function for this module. Increments angle from
+        zero to 2PI using the step size and collects samples during operation.
+
+        Args:
+            Viz (bool): Should the generated signal be visualized?
+
+        Returns:
+            (angle, signal): Generated data arrays
+        """
         signal_data = np.empty(self.data_length, 'float64')
-        ##rotation_data = np.empty(self.data_length, 'float64')
+        angle_data = np.empty(self.data_length, 'float64')
         current_sample_num = 0
 
-        # Do one approximately full mechanical rotation
-        # Might not be precisely full rotation, due to added noise
-        rotor_angle = np.random.uniform(0, PI2) # Start from random angle
+        # Does approximately one full rotation
+        # Due to noise and discrete step size, may not be precisely one rotation
+        angle = np.random.uniform(0, 2*np.pi) # Start from random angle
         while(current_sample_num < self.data_length):
-            ##rotation_data[current_sample_num] = rotor_angle
-            signal_data[current_sample_num] = self._sample(rotor_angle)
+            angle_data[current_sample_num] = angle
+            signal_data[current_sample_num] = self._get_sample(angle)
 
-            noise = np.random.uniform(-self.noise, self.noise) # simulate encoder noise (%)
-            rotor_angle += self.step_size + noise
+            noise = np.random.uniform(-self.noise, self.noise) # simulate noise (%)
+            angle += self.step_size + noise
             current_sample_num += 1
 
-            # Make angle to stay within limits: [0, PI2]
-            if (rotor_angle >= PI2):
-                rotor_angle = 0
-            print("Using local version!!!")
+            # Make angle to stay within limits [0, PI2]
+            angle = 0 if angle > 2*np.pi else angle
 
-        ##recorded_data = np.vstack((rotation_data, signal_data)) # [angle, signal1]
-        recorded_data = (signal_data) # [signal1]
-        return recorded_data # [signal1]
+        # Visualize sample if user wants to see it
+        if viz: 
+            self._plot_recorded_data(signal_data, angle_data)
 
-    def recordRotations(self, rotations=1, viz=False) -> np.array:
-        signal_num = 1
-        data = np.empty((rotations, signal_num, self.data_length), 'float64') # rotations, signals, signal_length
-        for i in range(0, rotations):
-            print("Collecting data: {}/{}".format((i+1), rotations))
-            data[i, :] = self._recordRotation()
+        return angle_data, signal_data 
 
-        # Show recorded samples if user wants to see them.
-        if viz:
-            self._plotRecordedData(data)
-
-        return data
-
-# ==============================================================
-# Data visualization logic below
-
-    def _keypress(self, event, ax1, ax2):
-        ax1.clear()
-        ax2.clear()
-        # TODO: Do not clear whole plot & texts (clf didn't work)
-        ax1.title.set_text('Rotor Angle [rad]')
-        ax2.title.set_text('Signal 1: torque [Nm]')
-
-    def _plot(self, input_vector, hndl, color='b'):
-        input_length = input_vector.shape[0]
-        x = np.arange(input_length)
-        hndl.plot(x, input_vector, color, linewidth=2.0)
-        hndl.plot(x, input_vector, color, linewidth=2.0)
-
-    def _plotRecordedData(self, recorded_data):
-        data = recorded_data
-
-        # Plot settings
+    def _plot_recorded_data(self, y1, y2):
+        """
+        A helper function for visualizing data
+        y1 (np.array): signal
+        y2 (np.array): angle
+        """
         fig, (ax1, ax2) = plt.subplots(2, 1)
-        fig.canvas.mpl_connect("key_press_event", lambda event: self._keypress(event, ax1, ax2))
-        ax1.title.set_text('Rotor Angle [rad]')
-        ax2.title.set_text('Signal 1: torque [Nm]')
+        ax1.title.set_text('Signal values')
+        ax2.title.set_text('Angle [rad]')
         fig.tight_layout()
-        print("Mouse click: plot over. Keyboard key: clear and plot next.")
 
-        for i in range(0, data.shape[0]):
-            print("Showing input: {}/{}".format((i+1), data.shape[0]))
-            self._plot(data[i, 1, :], ax2, 'b') # signal1
-            self._plot(data[i, 0, :], ax1, 'r') # angleS
-            plt.waitforbuttonpress()
+        x = np.arange(y1.shape[0])
+        ax1.plot(x, y1, color='r', linewidth=2.0)
+        ax2.plot(x, y2, color='b', linewidth=2.0)
+        plt.show(block=True)
 
-        plt.close()
+# ---------------------------------------------------------------------
+# User interfaces:
 
-    def step(self):
-        print("Not implemented yet")
-    def reset(self):
-        print("Not implemented yet")
-    def render(self):
-        print("Not implemented yet")
+class PeriodicalSignal(FourierSeries):
+    def record_rotation(self, viz=False) -> np.array:
+        _, signal = self._record_rotation(viz)
+        return signal
+
+class PeriodicalSignalWithAngle(FourierSeries):
+    def record_rotation(self, viz=False) -> (np.array, np.array):
+        angle, signal = self._record_rotation(viz)
+        return signal, angle
+
+class PeriodicalSignalWithTime(FourierSeries):
+    def __init__(self, hz=1.0, config_path=None) -> None:
+        """
+        Uses parent constructor, but takes in an additional parameter.
+        The additional hz parameter is used for deriving time from angle
+        values.
+
+        Args:
+            hz (float): rotation frequency.
+        """
+        FourierSeries.__init__(self, config_path)
+        self.hz = hz
+
+    def record_rotation(self, viz=False) -> (np.array, np.array):
+        angle, signal = self._record_rotation(viz)
+        time_data = (1.0 / self.hz) * angle
+        return signal, time_data
